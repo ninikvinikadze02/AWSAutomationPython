@@ -259,9 +259,11 @@ def main():
         if args.assign_missing_policy == "True":
             assign_policy(s3_client, "multiple_policy", args.bucket_name)
 
+        # Remove object from bucket
         if args.delete_object == "True":
             if args.file_name:
                 delete_object(s3_client, args.bucket_name, args.file_name)
+
         # Upload small files
         if args.upload_file == "True":
             if args.file_name:
