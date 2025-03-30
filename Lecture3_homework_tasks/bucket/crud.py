@@ -38,3 +38,11 @@ def bucket_exists(aws_s3_client, bucket_name) -> bool:
     except ClientError:
         # print(e)
         return False
+
+
+def has_versioning_enabled(aws_s3_client, bucket_name) -> bool:
+    # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.get_bucket_versioning
+    response = aws_s3_client.get_bucket_versioning(Bucket=bucket_name)
+    if 'Status' in response:
+        return True
+    return False

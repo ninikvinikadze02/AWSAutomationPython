@@ -3,6 +3,7 @@ from urllib.request import urlopen
 import io
 from hashlib import md5
 from time import localtime
+from io import BytesIO
 
 
 def get_objects(aws_s3_client, bucket_name) -> str:
@@ -17,7 +18,6 @@ def delete_object(aws_s3_client, bucket_name, key):
         return result
     except Exception as e:
         print(f"Error: {e}")
-
 
 
 def download_file_and_upload_to_s3(aws_s3_client,
@@ -87,3 +87,69 @@ def multipart_upload(aws_s3_client, filename, bucket_name):
                                                      MultipartUpload={"Parts": parts})
     print(result)
     return result
+
+
+def list_object_versioning(aws_s3_client, bucket_name, key):
+    # Fetch all versions for the specific key
+    versions = []
+    response = aws_s3_client.list_object_versions(Bucket=bucket_name, Prefix=key)
+
+    # Filter only the versions that match the exact key
+    if 'Versions' in response:
+        versions.extend([v for v in response['Versions'] if v['Key'] == key])
+
+    # Handle pagination if necessary
+    while response.get('IsTruncated'):
+        response = aws_s3_client.list_object_versions(
+            Bucket=bucket_name,
+            Prefix=key,
+            KeyMarker=response.get('NextKeyMarker'),
+            VersionIdMarker=response.get('NextVersionIdMarker')
+        )
+        if 'Versions' in response:
+            versions.extend([v for v in response['Versions'] if v['Key'] == key])
+    # Print the total count and version details
+    print(f"Total versions for '{key}': {len(versions)}")
+    for version in versions:
+        print(
+            f"VersionId: {version['VersionId']}, LastModified: {version['LastModified']}, IsLatest: {version['IsLatest']}")
+
+
+def rollback_to_previous_version(aws_s3_client, bucket_name: str, object_key: str):
+    # Step 1: Get all versions for the object key
+    versions = []
+    response = aws_s3_client.list_object_versions(Bucket=bucket_name, Prefix=object_key)
+
+    # Filter for only matching key versions
+    if 'Versions' in response:
+        versions.extend([v for v in response['Versions'] if v['Key'] == object_key])
+
+    # Paginate if necessary
+    while response.get('IsTruncated'):
+        response = aws_s3_client.list_object_versions(
+            Bucket=bucket_name,
+            Prefix=object_key,
+            KeyMarker=response.get('NextKeyMarker'),
+            VersionIdMarker=response.get('NextVersionIdMarker')
+        )
+        if 'Versions' in response:
+            versions.extend([v for v in response['Versions'] if v['Key'] == object_key])
+
+    # Step 2: Sort by LastModified (latest first)
+    versions.sort(key=lambda v: v['LastModified'], reverse=True)
+
+    if len(versions) < 2:
+        print("Not enough versions to rollback.")
+        return
+
+    # Step 3: Get the second latest version
+    previous_version = versions[1]  # index 1 is the version before the latest
+    version_id = previous_version['VersionId']
+
+    # Step 4: Download the previous version
+    obj = aws_s3_client.get_object(Bucket=bucket_name, Key=object_key, VersionId=version_id)
+    data = obj['Body'].read()
+
+    # Step 5: Re-upload the previous version to make it the latest
+    aws_s3_client.upload_fileobj(Fileobj=BytesIO(data), Bucket=bucket_name, Key=object_key)
+    print(f"Rolled back '{object_key}' to version ID: {version_id} (now latest)")

@@ -1,10 +1,10 @@
 import logging
 from botocore.exceptions import ClientError
 from auth import init_client
-from bucket.crud import list_buckets, create_bucket, delete_bucket, bucket_exists
+from bucket.crud import list_buckets, create_bucket, delete_bucket, bucket_exists, has_versioning_enabled
 from bucket.policy import read_bucket_policy, assign_policy, put_lifecycle_policy
 from object.crud import (download_file_and_upload_to_s3, get_objects, upload_file, upload_file_obj, upload_file_put,
-                         multipart_upload, delete_object)
+                         multipart_upload, delete_object, list_object_versioning, rollback_to_previous_version)
 from object.policy import set_object_access_policy
 from bucket.encryption import set_bucket_encryption, read_bucket_encryption
 import argparse
@@ -132,6 +132,33 @@ parser.add_argument("-ump",
 parser.add_argument("-plp",
                     "--put_lifecycle_policy",
                     help="Put Lifecycle Policy to bucket",
+                    choices=["False", "True"],
+                    type=str,
+                    nargs="?",
+                    const="True",
+                    default="False")
+
+parser.add_argument("-cbv",
+                    "--check_bucket_versioning",
+                    help="Check if the bucket has versioning enabled",
+                    choices=["False", "True"],
+                    type=str,
+                    nargs="?",
+                    const="True",
+                    default="False")
+
+parser.add_argument("-cov",
+                    "--check_object_versioning",
+                    help="Calculate number of versions for the object and their creation date",
+                    choices=["False", "True"],
+                    type=str,
+                    nargs="?",
+                    const="True",
+                    default="False")
+
+parser.add_argument("-rtpv",
+                    "--rollback_to_previous_version",
+                    help="Rollback the file to the previous version in bucket",
                     choices=["False", "True"],
                     type=str,
                     nargs="?",
@@ -300,6 +327,16 @@ def main():
 
         if args.list_objects == "True":
             get_objects(s3_client, args.bucket_name)
+
+        if args.check_bucket_versioning == "True":
+            print(has_versioning_enabled(s3_client, args.bucket_name))
+
+        if args.check_object_versioning == "True":
+            if args.file_name:
+                print(list_object_versioning(s3_client, args.bucket_name, args.file_name))
+        if args.rollback_to_previous_version == "True":
+            if args.file_name:
+                rollback_to_previous_version(s3_client, args.bucket_name, args.file_name)
 
     if args.list_buckets:
         buckets = list_buckets(s3_client)
