@@ -2,7 +2,10 @@ import logging
 from botocore.exceptions import ClientError
 from auth import init_client
 from bucket.crud import list_buckets, create_bucket, delete_bucket, bucket_exists
+from bucket.versioning import versioning
+
 from object.crud import upload_local_file
+from object.versioning import list_object_versions, delete_versions_older_than_six_months
 from my_args import bucket_arguments, object_arguments
 import argparse
 
@@ -34,10 +37,20 @@ def main():
             if (args.delete_bucket == "True") and delete_bucket(s3_client, args.name):
                 print("Bucket successfully deleted")
 
+            if args.versioning == "True":
+                versioning(s3_client, args.name, True)
+                print("Enabled versioning on bucket %s." % args.name)
+
         case "object":
             if args.local_object:
                 print(upload_local_file(s3_client, args.bucket_name, args.local_object, args.keep_file_name, args.upload_type))
 
+            if args.name:
+                if args.list_versions:
+                    list_object_versions(s3_client, args.bucket_name, args.name)
+                
+                if args.delete_versions:
+                    delete_versions_older_than_six_months(s3_client, args.bucket_name, args.name)
 
 if __name__ == "__main__":
     try:

@@ -104,7 +104,14 @@ def bucket_arguments(parser):
         const="True",
         default="False"
     )
-
+    parser.add_argument(
+        "-vers",
+        "--versioning",
+        type=str,
+        help="list bucket object",
+        nargs="?",
+        default=None
+    )
     return parser
 
 
@@ -144,6 +151,20 @@ def object_arguments(parser):
         type=str,
         help="upload local object",
         default=None
+    )
+
+    parser.add_argument(
+        "-l_v",
+        "--list_versions",
+        help="list versions",
+        action='store_true'
+    )
+    
+    parser.add_argument(
+        "-del_v",
+        "--delete_versions",
+        help="delete object versions older than 6 months",
+        action='store_true'
     )
 
     return parser
